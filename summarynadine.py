@@ -2,10 +2,14 @@ import csv
 
 file = open('Actigraphy data_Adult.csv')
 
+rest_start_times = []
+rest_end_times = []
+rest_durations = []
 sleep_start_times = []
 sleep_end_times = []
 sleep_durations = []
 
+#Changes time from 12 hour time to 24 hour time (now incorperated in Brandon's code aswell)
 def time_24hr(time):
     if 'PM' in time:
         time = time.strip(' PM')
@@ -14,7 +18,6 @@ def time_24hr(time):
             time[0] = int(time[0]) + 12
             time[0] = str(time[0])
         time = ":".join(time)
-        return(time)
     elif 'AM' in time:
         time = time.strip(' AM')
         time = time.split(':')
@@ -22,23 +25,98 @@ def time_24hr(time):
             time[0] = 0
             time[0] = str(time[0])
         time = ":".join(time)
-        return(time)
-
-def string_to_list(time):
-    time = time.split(':')
-    time[0] = int(time[0])
-    time[1] = int(time[1])
-    time[2] = int(time[2])
     return(time)
+
+def time_min(list):
+    min_time = list[0]
+    if type(min_time) == type('a'):
+        min_time = [int(part) for part in min_time.split(":")]
+    for value in range(len(list)):
+        integer = list[value]
+        if type(integer) == type('a'):
+            integer = [int(part) for part in integer.split(":")]
+        if integer[0] < min_time[0] and integer[0] > 12:
+            min_time = integer
+        elif integer[0] == min_time[0]:
+            if integer[1] < min_time[1]:
+                min_time = integer
+    return(min_time)
+    
+def time_max(list):
+    max_time = list[0]
+    if type(max_time) == type('a'):
+        max_time = [int(part) for part in max_time.split(":")]
+    for value in range(len(list)):
+        integer = list[value]
+        if type(integer) == type('a'):
+            integer = [int(part) for part in integer.split(":")]
+        if integer[0] > max_time[0]:
+            max_time = integer
+        elif integer[0] == max_time[0]:
+            if integer[1] > max_time[1]:
+                max_time = integer
+    return(max_time)
+
+def to_secs(list):
+    times_in_secs = []
+    for i in range(len(list)):
+        if type(list[i]) == type('a'):
+            list[i] = [int(part) for part in list[i].split(":")]
+        if list[i][0] < 12:
+            list[i][0] = list[i][0] + 24
+        times_in_secs.append((list[i][0]*60*60)+list[i][1]*60)
+    return(times_in_secs)
+
+def from_secs(value):
+    time = [0,0,0]
+    time[2] = int(value%60)
+    value = (value - value%60)/60
+    time[1] = int(value%60)
+    value = (value - value%60)/60
+    time[0] = int(value)
+    return(time)
+
+def time_avg(list):
+    times = list.copy()
+    times_in_secs = to_secs(list)
+    sum_of_times = 0
+    for counter in range(len(times)):
+        sum_of_times = sum_of_times + times_in_secs[counter]
+    avg_time = sum_of_times/len(times_in_secs)
+    return(from_secs(avg_time))
+
 
 for line in file:
     line = line.strip('"')
     line = line.strip('",\n')
     line = line.split('","')
 
+#extracts row by row of time in bed/rest times
+    if 'REST' in line:
+        time1 = time_24hr(line[4])
+        rest_start_times.append(time1)
+
+        time2 = time_24hr(line[7])
+        rest_end_times.append(time2)
+
+#Calculate duration of hours in bed
+        time1 = [int(part) for part in time1.split(":")]
+        time2 = [int(part) for part in time2.split(":")]
+        time3 = [0,0,0]
+        if time1[0] > time2[0]:
+            hour_difference = 24 - time1[0]
+            time3[0] = time3[0] + hour_difference
+        time3[0] = time3[0] + time2[0]
+        minute_difference = time1[1] - time2[1]
+        if minute_difference < 0:
+            time3[0] = time3[0] - 1
+            time3[1] = 60 + minute_difference
+        else:
+            time3[1] = minute_difference
+        rest_durations.append(time3)
+
 #Extracting row by row of recorded sleep times
-    if 'SLEEP' in line:
-#Append start times
+    elif 'SLEEP' in line:
         time1 = time_24hr(line[4])
         sleep_start_times.append(time1)
 
@@ -62,40 +140,38 @@ for line in file:
             time3[1] = minute_difference
         sleep_durations.append(time3)
 
-
-#Minimums for time values - incomplete
-    min_bedtime = min(sleep_start_times)
-    min_get_up_time = min(sleep_end_times)
-    min_hours_of_sleep = min(sleep_durations)
-
-#Maximums for time values - incomplete
-    max_bedtime = max(sleep_start_times)
-    max_get_up_time = max(sleep_end_times)
-    max_hours_of_sleep = max(sleep_durations)
-
-#Averages for time values - incomplete
-    avg_bedtime = avg(sleep_start_times)
-    avg_get_up_time = avg(sleep_end_times)
-    avg_hours_of_sleep = avg(sleep_durations)
-
 #Minimums for all except time
-    if 'Sleep Summary' in line and 'Minimum(n)' in line:
+    elif 'Sleep Summary' in line and 'Minimum(n)' in line:
         min_onset_latency = line[20]
         min_efficiency = line[21]
         min_waso = line[23]
         min_awakenings = line[25]
 
 #Maximums for all except time
-    if 'Sleep Summary' in line and 'Maximum(n)' in line:
+    elif 'Sleep Summary' in line and 'Maximum(n)' in line:
         max_onset_latency = line[20]
         max_efficiency = line[21]
         max_waso = line[23]
         max_awakenings = line[25]
 
 #Averages for all except time
-    if 'Sleep Summary' in line and 'Average(n)' in line:
-        #print(line)
+    elif 'Sleep Summary' in line and 'Average(n)' in line:
         avg_onset_latency = line[20]
         avg_efficiency = line[21]
         avg_waso = line[23]
         avg_awakenings = line[25]
+
+#Minimums for time values
+#min_bedtime = ":".join([str(part) for part in time_min(sleep_start_times)])
+#min_get_up_time = ":".join([str(part) for part in time_min(sleep_end_times)])
+min_total_sleep_hours = ":".join([str(part) for part in time_min(sleep_durations)])
+
+#Maximums for time values
+#max_bedtime = ":".join([str(part) for part in time_max(sleep_start_times)])
+#max_get_up_time = ":".join([str(part) for part in time_max(sleep_end_times)])
+max_total_sleep_hours = ":".join([str(part) for part in time_max(sleep_durations)])
+
+#Averges for time values
+#avg_bedtime = ":".join([str(part) for part in time_avg(sleep_start_times)])
+#avg_get_up_time = ":".join([str(part) for part in time_avg(sleep_end_times)])
+avg_total_sleep_hours = ":".join([str(part) for part in time_avg(sleep_durations)])
