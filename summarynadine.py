@@ -8,18 +8,20 @@ rest_durations = []
 sleep_start_times = []
 sleep_end_times = []
 sleep_durations = []
+epoch_detected = False
 
 #Changes time from 12 hour time to 24 hour time (now incorperated in Brandon's code aswell)
 def time_24hr(time):
-    if 'PM' in time:
-        time = time.strip(' PM')
+    time = time.lower()
+    if 'pm' in time:
+        time = time.strip(' pm')
         time = time.split(':')
         if int(time[0]) < 12:
             time[0] = int(time[0]) + 12
             time[0] = str(time[0])
         time = ":".join(time)
-    elif 'AM' in time:
-        time = time.strip(' AM')
+    elif 'am' in time:
+        time = time.strip(' am')
         time = time.split(':')
         if int(time[0]) == 12:
             time[0] = 0
@@ -30,11 +32,11 @@ def time_24hr(time):
 def time_min(list):
     min_time = list[0]
     if type(min_time) == type('a'):
-        min_time = [int(part) for part in min_time.split(":")]
+        min_time = [float(part) for part in min_time.split(":")]
     for value in range(len(list)):
         integer = list[value]
         if type(integer) == type('a'):
-            integer = [int(part) for part in integer.split(":")]
+            integer = [float(part) for part in integer.split(":")]
         if integer[0] < min_time[0] and integer[0] > 12:
             min_time = integer
         elif integer[0] == min_time[0]:
@@ -45,11 +47,11 @@ def time_min(list):
 def time_max(list):
     max_time = list[0]
     if type(max_time) == type('a'):
-        max_time = [int(part) for part in max_time.split(":")]
+        max_time = [float(part) for part in max_time.split(":")]
     for value in range(len(list)):
         integer = list[value]
         if type(integer) == type('a'):
-            integer = [int(part) for part in integer.split(":")]
+            integer = [float(part) for part in integer.split(":")]
         if integer[0] > max_time[0]:
             max_time = integer
         elif integer[0] == max_time[0]:
@@ -57,14 +59,14 @@ def time_max(list):
                 max_time = integer
     return(max_time)
 
-def to_secs(list):
+def to_secs(my_list):
     times_in_secs = []
-    for i in range(len(list)):
-        if type(list[i]) == type('a'):
-            list[i] = [int(part) for part in list[i].split(":")]
-        if list[i][0] < 12:
-            list[i][0] = list[i][0] + 24
-        times_in_secs.append((list[i][0]*60*60)+list[i][1]*60)
+    for i in range(len(my_list)):
+        if type(my_list[i]) == type('a'):
+            my_list[i] = [int(part) for part in my_list[i].split(":")]
+        if my_list[i][0] < 12:
+            my_list[i][0] = my_list[i][0] + 24
+        times_in_secs.append((my_list[i][0] * 60 * 60) + my_list[i][1] * 60)
     return(times_in_secs)
 
 def from_secs(value):
@@ -87,12 +89,14 @@ def time_avg(list):
 
 
 for line in file:
+    if "Epoch-by-Epoch Data" in line:
+        epoch_detected = True
     line = line.strip('"')
     line = line.strip('",\n')
     line = line.split('","')
 
 #extracts row by row of time in bed/rest times
-    if 'REST' in line:
+    if 'REST' in line and epoch_detected == False:
         time1 = time_24hr(line[4])
         rest_start_times.append(time1)
 
@@ -100,45 +104,47 @@ for line in file:
         rest_end_times.append(time2)
 
 #Calculate duration of hours in bed
-        time1 = [int(part) for part in time1.split(":")]
-        time2 = [int(part) for part in time2.split(":")]
-        time3 = [0,0,0]
-        if time1[0] > time2[0]:
-            hour_difference = 24 - time1[0]
-            time3[0] = time3[0] + hour_difference
-        time3[0] = time3[0] + time2[0]
-        minute_difference = time1[1] - time2[1]
-        if minute_difference < 0:
-            time3[0] = time3[0] - 1
-            time3[1] = 60 + minute_difference
-        else:
-            time3[1] = minute_difference
-        rest_durations.append(time3)
+        time1 = [float(part) for part in time1.split(":")]
+        time2 = [float(part) for part in time2.split(":")]
+        if time1 != [0.0]:
+            time3 = [0,0,0]
+            if time1[0] > time2[0]:
+                hour_difference = 24 - time1[0]
+                time3[0] = time3[0] + hour_difference
+            time3[0] = time3[0] + time2[0]
+            minute_difference = time1[1] - time2[1]
+            if minute_difference < 0:
+                time3[0] = time3[0] - 1
+                time3[1] = 60 + minute_difference
+            else:
+                time3[1] = minute_difference
+            rest_durations.append(time3)
 
 #Extracting row by row of recorded sleep times
-    elif 'SLEEP' in line:
-        time1 = time_24hr(line[4])
-        sleep_start_times.append(time1)
+    if 'SLEEP' in line and epoch_detected == False:
+        stime1 = time_24hr(line[4])
+        sleep_start_times.append(stime1)
 
 #Append end time
-        time2 = time_24hr(line[7])
-        sleep_end_times.append(time2)
+        stime2 = time_24hr(line[7])
+        sleep_end_times.append(stime2)
 
 #Calculate duration and append to sleep_durations
-        time1 = [int(part) for part in time1.split(":")]
-        time2 = [int(part) for part in time2.split(":")]
-        time3 = [0,0,0]
-        if time1[0] > time2[0]:
-            hour_difference = 24 - time1[0]
-            time3[0] = time3[0] + hour_difference
-        time3[0] = time3[0] + time2[0]
-        minute_difference = time1[1] - time2[1]
-        if minute_difference < 0:
-            time3[0] = time3[0] - 1
-            time3[1] = 60 + minute_difference
-        else:
-            time3[1] = minute_difference
-        sleep_durations.append(time3)
+        stime1 = [float(part) for part in stime1.split(":")]
+        stime2 = [float(part) for part in stime2.split(":")]
+        stime3 = [0,0,0]
+        if stime1 != [0.0]:
+            if stime1[0] > stime2[0]:
+                hour_difference = 24 - stime1[0]
+                stime3[0] = stime3[0] + hour_difference
+            stime3[0] = stime3[0] + stime2[0]
+            minute_difference = stime1[1] - stime2[1]
+            if minute_difference < 0:
+                stime3[0] = stime3[0] - 1
+                stime3[1] = 60 + minute_difference
+            else:
+                stime3[1] = minute_difference
+            sleep_durations.append(stime3)
 
 #Minimums for all except time
     elif 'Sleep Summary' in line and 'Minimum(n)' in line:
@@ -162,16 +168,19 @@ for line in file:
         avg_awakenings = line[25]
 
 #Minimums for time values
-#min_bedtime = ":".join([str(part) for part in time_min(sleep_start_times)])
-#min_get_up_time = ":".join([str(part) for part in time_min(sleep_end_times)])
+min_bedtime = ":".join([str(part) for part in time_min(rest_start_times)])
+min_get_up_time = ":".join([str(part) for part in time_min(rest_end_times)])
+min_time_in_bed = ":".join([str(part) for part in time_min(rest_durations)])
 min_total_sleep_hours = ":".join([str(part) for part in time_min(sleep_durations)])
 
 #Maximums for time values
-#max_bedtime = ":".join([str(part) for part in time_max(sleep_start_times)])
-#max_get_up_time = ":".join([str(part) for part in time_max(sleep_end_times)])
+max_bedtime = ":".join([str(part) for part in time_max(rest_start_times)])
+max_get_up_time = ":".join([str(part) for part in time_max(rest_end_times)])
+max_time_in_bed = ":".join([str(part) for part in time_max(rest_durations)])
 max_total_sleep_hours = ":".join([str(part) for part in time_max(sleep_durations)])
 
 #Averges for time values
-#avg_bedtime = ":".join([str(part) for part in time_avg(sleep_start_times)])
-#avg_get_up_time = ":".join([str(part) for part in time_avg(sleep_end_times)])
+avg_bedtime = ":".join([str(part) for part in time_avg(rest_start_times)])
+avg_get_up_time = ":".join([str(part) for part in time_avg(rest_end_times)])
+avg_time_in_bed = ":".join([str(part) for part in time_avg(rest_durations)])
 avg_total_sleep_hours = ":".join([str(part) for part in time_avg(sleep_durations)])
